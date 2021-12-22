@@ -10,7 +10,6 @@ ubuntu18.04+ros-melodic
 
 	$ pip install evo --upgrade --no-binary evo
 
-说明：只有align.py需要evo
 
 # 运行
 
