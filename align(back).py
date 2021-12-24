@@ -120,58 +120,83 @@ if __name__=="__main__":
         set_origin(traj_est,traj_ref)  
 
         # /reach_goal:
-        goal_timestamps= []
+        goal_1_timestamps= []
+        goal_2_timestamps= []
         for topic, msg, t in bag.read_messages(topic_signal):
-            goal_timestamps.append(msg.header.stamp.secs + (msg.header.stamp.nsecs * 1e-9))
+            # ReachGoal#1
+            if  msg.status.text=="ReachGoal#1":
+                goal_1_timestamps.append(msg.header.stamp.secs + (msg.header.stamp.nsecs * 1e-9))
+            # ReachGoal#1
+            if  msg.status.text=="ReachGoal#2":
+                goal_2_timestamps.append(msg.header.stamp.secs + (msg.header.stamp.nsecs * 1e-9))
 
         # Find the closest trajectort.
-        matching_indices_ref = []
-        matching_indices_est = []
-        stamps_goal, xyz_goal, quat_goal= [], [], []
-         # traj_ref
-        for index_1, element1 in enumerate(goal_timestamps):
-            diffs = traj_ref.timestamps-element1
+        max_diff = 0.01,
+        matching_indices_1 = []
+        matching_indices_2 = []
+        # ReachGoal#1
+        for index_1, goal_1_timestamps in enumerate(goal_1_timestamps):
+            diffs = traj_est.timestamps-goal_1_timestamps
             valid_idx = np.where(diffs >= 0)[0]
+            #index_2 = valid_idx[diffs[valid_idx].argmin()]
             index_2 = valid_idx[0]
-            matching_indices_ref.append(index_2)
-                
-        stamps_goal =traj_ref.timestamps[matching_indices_ref]
-        xyz_goal =traj_ref.positions_xyz[matching_indices_ref]
-        quat_goal =traj_ref.orientations_quat_wxyz[matching_indices_ref]
-        traj_ref_goal=PoseTrajectory3D(np.array(xyz_goal), np.array(quat_goal), np.array(stamps_goal),traj_ref.meta)
-
-        # traj_est
-        for index_1, element2 in enumerate(goal_timestamps):
-            diffs = traj_est.timestamps-element2
+            if diffs[index_2] <= max_diff:
+                matching_indices_1.append(index_2)
+        # ReachGoal#2
+        for index_1, goal_2_timestamps in enumerate(goal_2_timestamps):
+            diffs = traj_est.timestamps-goal_2_timestamps
             valid_idx = np.where(diffs >= 0)[0]
+            #index_2 = valid_idx[diffs[valid_idx].argmin()]
             index_2 = valid_idx[0]
-            matching_indices_est.append(index_2)
-                
-        stamps_goal =traj_est.timestamps[matching_indices_est]
-        xyz_goal =traj_est.positions_xyz[matching_indices_est]
-        quat_goal =traj_est.orientations_quat_wxyz[matching_indices_est]
-        traj_est_goal=PoseTrajectory3D(np.array(xyz_goal), np.array(quat_goal), np.array(stamps_goal),traj_est.meta)
+            if diffs[index_2 ] <= max_diff:
+                matching_indices_2.append(index_2 )
 
-        # calculating APE.
+        stamps_goal_1, xyz_goal_1, quat_goal_1= [], [], []
+        stamps_goal_1 =traj_est.timestamps[matching_indices_1]
+        xyz_goal_1 =traj_est.positions_xyz[matching_indices_1]
+        quat_goal_1 =traj_est.orientations_quat_wxyz[matching_indices_1]
+        traj_goal_1=PoseTrajectory3D(np.array(xyz_goal_1), np.array(quat_goal_1), np.array(stamps_goal_1),
+                            traj_est.meta)
+
+        stamps_goal_2, xyz_goal_2, quat_goal_2 = [], [], []
+        stamps_goal_2 =traj_est.timestamps[matching_indices_2]
+        xyz_goal_2 =traj_est.positions_xyz[matching_indices_2]
+        quat_goal_2 =traj_est.orientations_quat_wxyz[matching_indices_2]
+        traj_goal_2=PoseTrajectory3D(np.array(xyz_goal_2), np.array(quat_goal_2), np.array(stamps_goal_2),
+                            traj_est.meta)
+
+        # Compute std and mean ReachGoal#1.
+        goal_1_arr = traj_goal_1.positions_xyz
+        goal_1_mean_arr= goal_1_arr.mean(axis=0)
+        goal_1_d_arr=goal_1_arr - goal_1_mean_arr
+        goal_1_dis_arr = np.sqrt(np.square(goal_1_d_arr[:,0])+np.square(goal_1_d_arr [:,1])+np.square(goal_1_d_arr[:,2]))
+        goal_1_dis_mean = goal_1_dis_arr.mean(axis=0)
+        goal_1_dis_std= goal_1_dis_arr.std(ddof=1,axis=0)
+        print("goal_1_dis_mean :")
+        print(goal_1_dis_mean )
+        print("goal_1_dis_std:")
+        print(goal_1_dis_std)
+
+
+        # Compute std and mean ReachGoal#2.
+        goal_2_arr = traj_goal_2.positions_xyz
+        goal_2_mean_arr= goal_2_arr.mean(axis=0)
+        goal_2_d_arr=goal_2_arr - goal_2_mean_arr
+        goal_2_dis_arr = np.sqrt(np.square(goal_2_d_arr[:,0])+np.square(goal_2_d_arr [:,1])+np.square(goal_2_d_arr[:,2]))
+        goal_2_dis_mean = goal_2_dis_arr.mean(axis=0)
+        goal_2_dis_std= goal_2_dis_arr.std(ddof=1,axis=0)
+        print("goal_2_dis_mean:")
+        print(goal_2_dis_mean)
+        print("goal_2_dis_std:")
+        print(goal_2_dis_std)
+
         print("calculating APE")
-        traj_ref_goal_arr = traj_ref_goal.positions_xyz
-        traj_est_goal_arr = traj_est_goal.positions_xyz
-        goal_diff_arr=traj_ref_goal_arr - traj_est_goal_arr
-        goal_dis_arr = np.sqrt(np.square(goal_diff_arr[:,0])+np.square(goal_diff_arr [:,1])+np.square(goal_diff_arr[:,2]))
-
-        goal_dis_max = goal_dis_arr.max()
-        goal_dis_min = goal_dis_arr.min()
-        goal_dis_mean = goal_dis_arr.mean(axis=0)
-        goal_dis_median= np.median(goal_dis_arr)
-        goal_dis_std= goal_dis_arr.std(ddof=1,axis=0)
-        goal_dis_rmse =np.sqrt((goal_diff_arr ** 2).mean())
-
-        print("max:"+ str(goal_dis_max))
-        print("mean"+str(goal_dis_mean))
-        print("median"+str(goal_dis_median))
-        print("min"+str(goal_dis_min))
-        print("rmse"+str(goal_dis_rmse))
-        print("std"+str(goal_dis_std))
+        synv_traj_ref, synv_traj_est= sync.associate_trajectories(traj_ref, traj_est)
+        pose_relation = PoseRelation.full_transformation
+        #pose_relation = PoseRelation.translation_part
+        ape_result = main_ape.ape(synv_traj_ref, synv_traj_est,pose_relation)
+        print("ape_result:")
+        print(ape_result)
 
         #plot
         print("plot")
@@ -179,9 +204,9 @@ if __name__=="__main__":
         plot_mode = plot.PlotMode.xy
         ax = plot.prepare_axis(fig, plot_mode)
         plot.traj(ax, plot_mode, traj_ref, '--', 'gray','reference')
-        plot.traj(ax, plot_mode, traj_est, '--', 'blue','est')
-        plot.traj(ax, plot_mode, traj_ref_goal, '*', 'red','traj_ref_goal')
-        plot.traj(ax, plot_mode, traj_est_goal, '*', 'black','traj_est_goal')
+        plot.traj(ax, plot_mode, traj_est, '-', 'blue','est')
+        plot.traj(ax, plot_mode, traj_goal_1, '*', 'red','est_goal_1')
+        plot.traj(ax, plot_mode, traj_goal_2, '*', 'black','est_goal_2')
         fig.axes.append(ax)
         plt.title('align trajectory')
         plt.savefig("output.jpg")  #保存图象
