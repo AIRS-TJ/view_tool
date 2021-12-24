@@ -167,11 +167,11 @@ if __name__=="__main__":
         goal_dis_rmse =np.sqrt((goal_diff_arr ** 2).mean())
 
         print("max:"+ str(goal_dis_max))
-        print("mean"+str(goal_dis_mean))
-        print("median"+str(goal_dis_median))
-        print("min"+str(goal_dis_min))
-        print("rmse"+str(goal_dis_rmse))
-        print("std"+str(goal_dis_std))
+        print("mean:"+str(goal_dis_mean))
+        print("median:"+str(goal_dis_median))
+        print("min:"+str(goal_dis_min))
+        print("rmse:"+str(goal_dis_rmse))
+        print("std:"+str(goal_dis_std))
 
         #plot
         print("plot")
